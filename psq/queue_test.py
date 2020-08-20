@@ -159,8 +159,9 @@ def test_listen():
     assert q.subscription
 
     # Should invoke the underlying pub/sub listen
+    flow_control = pubsub_v1.types.FlowControl(max_messages=1)
     q.subscriber_client.subscribe.assert_called_once_with(
-        q.subscription, callback=mock.ANY)
+        q.subscription, callback=mock.ANY, flow_control=flow_control)
     assert future == q.subscriber_client.subscribe.return_value
 
     # Grab the callback and make sure the invoking it decodes the task and

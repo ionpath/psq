@@ -20,6 +20,7 @@ import logging
 from uuid import uuid4
 
 import google.cloud.exceptions
+from google.cloud import pubsub_v1
 
 from .globals import queue_context
 from .storage import Storage
@@ -121,22 +122,24 @@ class Queue(object):
 
     @staticmethod
     def _pubsub_message_callback(task_callback, message):
-        message.ack()
-
         try:
             task = unpickle(message.data)
             task_callback(task)
         except UnpickleError:
             logger.exception('Failed to unpickle task {}.'.format(message))
+        finally:
+            message.ack()
 
-    def listen(self, callback):
+    def listen(self, callback, max_messages=1):
         if not self.subscription:
             self.subscription = self._get_or_create_subscription()
 
         message_callback = functools.partial(
             self._pubsub_message_callback, callback)
+        flow_control = pubsub_v1.types.FlowControl(max_messages=max_messages)
         return self.subscriber_client.subscribe(
-            self.subscription, callback=message_callback)
+            self.subscription, callback=message_callback,
+            flow_control=flow_control)
 
     def cleanup(self):
         """Does nothing for this queue, but other queues types may use this to
